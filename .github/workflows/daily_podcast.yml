@@ -4,7 +4,7 @@ on:
   schedule:
     # Chạy vào 22:00 UTC hàng ngày
     # (Tương đương 5:00 sáng Việt Nam ngày hôm sau)
-    - cron: '0 22 * * *'
+    - cron: '0 0 * * *'
   workflow_dispatch: # Cho phép bấm nút chạy thủ công để test
 
 jobs:
