@@ -1,0 +1,35 @@
+name: Daily English Podcast
+
+on:
+  schedule:
+    # Chạy vào 22:00 UTC hàng ngày
+    # (Tương đương 5:00 sáng Việt Nam ngày hôm sau)
+    - cron: '0 22 * * *'
+  workflow_dispatch: # Cho phép bấm nút chạy thủ công để test
+
+jobs:
+  run_automation:
+    runs-on: ubuntu-latest # Chạy trên máy ảo Linux mới nhất
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3 # Tải code của bạn về máy ảo
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10' # Cài đặt Python 3.10
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Automation Script
+        # Quan trọng: Nạp các biến bí mật vào môi trường chạy
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
+        run: python main.py
