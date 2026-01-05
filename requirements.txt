@@ -1,0 +1,9 @@
+feedparser
+requests
+google-generativeai
+python-docx
+python-dotenv
+EMAIL_SENDER=cquangdu@gmail.com
+EMAIL_PASSWORD=pjws evfb ezli ultg
+EMAIL_RECEIVER=cquangdu@knu.ac.kr
+GOOGLE_API_KEY=AIzaSyAkbxLAIA8LZ79Ijp5S77KludqRe6J5o7Q
