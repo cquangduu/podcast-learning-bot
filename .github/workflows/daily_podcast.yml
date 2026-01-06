@@ -2,7 +2,7 @@ name: Daily English Podcast
 
 on:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 22 * * *'
   workflow_dispatch:
 
 jobs:
@@ -12,24 +12,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # --- SỬA LỖI 1: Nâng cấp Python từ 3.9 lên 3.10 ---
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10' 
+          python-version: '3.10' # Giữ nguyên 3.10
 
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install beautifulsoup4 feedparser google-generativeai python-docx python-dotenv requests
+          # LƯU Ý: Thay google-generativeai bằng google-genai
+          pip install beautifulsoup4 feedparser google-genai python-docx python-dotenv requests
 
       - name: Run automation script
-        # --- SỬA LỖI 2: Ánh xạ biến chính xác ---
         env:
-          # Cột trái (Code Python cần) : Cột phải (Tên bạn lưu trong Secrets)
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
-          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_SENDER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASS }}
           EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
-        # Lưu ý: Trong log của bạn file tên là main.py, nên lệnh chạy phải là main.py
         run: python main.py
