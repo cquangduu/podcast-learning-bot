@@ -6,7 +6,7 @@ import os
 import time
 import feedparser
 import requests
-import google.generativeai as genai
+import google.genai as genai
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
@@ -226,4 +226,5 @@ class PodcastLearningAutomation:
 
 if __name__ == "__main__":
     PodcastLearningAutomation().run()
+
 
