@@ -22,8 +22,26 @@ MODEL_NAME = "gemini-flash-latest" # Dùng bản Flash cho nhanh và ổn địn
 
 class PodcastLearningAutomation:
     def __init__(self):
+        print("--- KIỂM TRA MÔI TRƯỜNG ---")
         self.rss_url = RSS_FEED_URL
-        self.setup_env()
+        
+        # Tải biến môi trường
+        load_dotenv()
+        self.email_sender = os.getenv("EMAIL_SENDER")
+        self.email_password = os.getenv("EMAIL_PASSWORD")
+        self.email_receiver = os.getenv("EMAIL_RECEIVER")
+        self.api_key = os.getenv('GOOGLE_API_KEY')
+
+        # DEBUG: In ra xem biến có nhận được không (Chỉ in Có/Không, tuyệt đối không in mật khẩu)
+        print(f"1. API Key: {'✅ Đã nhận' if self.api_key else '❌ RỖNG (Kiểm tra lại Secrets)'}")
+        print(f"2. Email Gửi: {'✅ Đã nhận' if self.email_sender else '❌ RỖNG (Kiểm tra lại Secrets)'}")
+        print(f"3. Email Nhận: {'✅ Đã nhận' if self.email_receiver else '❌ RỖNG'}")
+        print(f"4. Password: {'✅ Đã nhận' if self.email_password else '❌ RỖNG'}")
+
+        # NẾU THIẾU -> DỪNG CHƯƠNG TRÌNH NGAY (Để GitHub báo lỗi đỏ)
+        if not all([self.email_sender, self.email_password, self.email_receiver, self.api_key]):
+            raise ValueError("⛔ LỖI: GitHub không truyền được biến môi trường vào Python. Hãy kiểm tra file main.yml!")
+
         self.setup_gemini()
         
     def setup_env(self):
@@ -208,3 +226,4 @@ class PodcastLearningAutomation:
 
 if __name__ == "__main__":
     PodcastLearningAutomation().run()
+
