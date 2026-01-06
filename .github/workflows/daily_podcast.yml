@@ -28,8 +28,8 @@ jobs:
         env:
           # Cột trái (Code Python cần) : Cột phải (Tên bạn lưu trong Secrets)
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          EMAIL_SENDER: ${{ secrets.EMAIL_USER }}
-          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASS }}
+          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
         # Lưu ý: Trong log của bạn file tên là main.py, nên lệnh chạy phải là main.py
         run: python main.py
