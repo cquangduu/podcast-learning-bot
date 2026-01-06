@@ -1,7 +1,7 @@
+beautifulsoup4
 feedparser
-feedparser
-requests
 google-generativeai
 python-docx
 python-dotenv
-beautifulsoup4
+requests
+
