@@ -2,34 +2,32 @@ name: Daily English Podcast
 
 on:
   schedule:
-    # Chạy vào 22:00 UTC hàng ngày
-    # (Tương đương 5:00 sáng Việt Nam ngày hôm sau)
-    - cron: '0 0 * * *'
-  workflow_dispatch: # Cho phép bấm nút chạy thủ công để test
+    - cron: '0 0 * * *' # Chạy lúc 5h sáng VN (UTC+7)
+  workflow_dispatch:      # Cho phép bấm chạy tay để test
 
 jobs:
-  run_automation:
-    runs-on: ubuntu-latest # Chạy trên máy ảo Linux mới nhất
-    
+  build:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3 # Tải code của bạn về máy ảo
+        uses: actions/checkout@v3
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10' # Cài đặt Python 3.10
+          python-version: '3.9'
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install beautifulsoup4 feedparser google-generativeai python-docx python-dotenv requests
 
-      - name: Run Automation Script
-        # Quan trọng: Nạp các biến bí mật vào môi trường chạy
+      - name: Run automation script
+        # ĐÂY LÀ PHẦN QUAN TRỌNG NHẤT - CẦU NỐI
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
-          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          # Bên Trái: Tên biến trong Code Python
+          # Bên Phải: Tên Secret bạn lưu trong GitHub Settings
+          EMAIL_SENDER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASS }}
           EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
         run: python main.py
