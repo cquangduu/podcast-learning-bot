@@ -1,195 +1,151 @@
 """
-English Learning Automation - Phiên bản Fix Lỗi RSS BBC + Gửi Email
+English Learning Automation - NEW GENAI VERSION (Fix 503 Error)
 """
 import smtplib
 import os
 import time
 import feedparser
 import requests
-import google.genai as genai
+from google import genai # Thư viện mới
+from google.genai import types
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
 from docx import Document
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
-from bs4 import BeautifulSoup # Thư viện quan trọng để fix lỗi BBC
 
 # --- CẤU HÌNH ---
 RSS_FEED_URL = "http://feeds.bbci.co.uk/learningenglish/english/features/6-minute-english/rss"
 TEMP_AUDIO_FILE = "temp_podcast.mp3"
-MODEL_NAME = "gemini-flash-latest" # Dùng bản Flash cho nhanh và ổn định
+MODEL_NAME = "gemini-flash-latest"
 
 class PodcastLearningAutomation:
     def __init__(self):
-        print("--- KIỂM TRA MÔI TRƯỜNG ---")
-        self.rss_url = RSS_FEED_URL
-        
-        # Tải biến môi trường
+        print("--- KHỞI TẠO HỆ THỐNG ---")
         load_dotenv()
+        
+        # 1. Lấy biến môi trường
         self.email_sender = os.getenv("EMAIL_SENDER")
         self.email_password = os.getenv("EMAIL_PASSWORD")
         self.email_receiver = os.getenv("EMAIL_RECEIVER")
         self.api_key = os.getenv('GOOGLE_API_KEY')
 
-        # DEBUG: In ra xem biến có nhận được không (Chỉ in Có/Không, tuyệt đối không in mật khẩu)
-        print(f"1. API Key: {'✅ Đã nhận' if self.api_key else '❌ RỖNG (Kiểm tra lại Secrets)'}")
-        print(f"2. Email Gửi: {'✅ Đã nhận' if self.email_sender else '❌ RỖNG (Kiểm tra lại Secrets)'}")
-        print(f"3. Email Nhận: {'✅ Đã nhận' if self.email_receiver else '❌ RỖNG'}")
-        print(f"4. Password: {'✅ Đã nhận' if self.email_password else '❌ RỖNG'}")
-
-        # NẾU THIẾU -> DỪNG CHƯƠNG TRÌNH NGAY (Để GitHub báo lỗi đỏ)
-        if not all([self.email_sender, self.email_password, self.email_receiver, self.api_key]):
-            raise ValueError("⛔ LỖI: GitHub không truyền được biến môi trường vào Python. Hãy kiểm tra file main.yml!")
-
-        self.setup_gemini()
+        # 2. Kiểm tra
+        print(f"API Key: {'✅ OK' if self.api_key else '❌ MISSING'}")
+        print(f"Email User: {'✅ OK' if self.email_sender else '❌ MISSING'}")
         
-    def setup_env(self):
-        """Tải biến môi trường"""
-        load_dotenv()
-        # Lưu ý: Đảm bảo tên biến khớp với GitHub Secrets của bạn
-        self.email_sender = os.getenv("EMAIL_SENDER") or os.getenv("EMAIL_USER")
-        self.email_password = os.getenv("EMAIL_PASSWORD") or os.getenv("EMAIL_PASS")
-        self.email_receiver = os.getenv("EMAIL_RECEIVER")
-        self.api_key = os.getenv('GOOGLE_API_KEY')
+        if not all([self.email_sender, self.email_password, self.email_receiver, self.api_key]):
+             raise ValueError("⛔ LỖI: Thiếu biến môi trường! Kiểm tra lại Secrets/YAML.")
 
-        if not self.api_key:
-            print("⚠️ Cảnh báo: Thiếu API Key")
-
-    def setup_gemini(self):
+        # 3. Cấu hình Client Gemini Mới
         try:
-            genai.configure(api_key=self.api_key)
-            self.model = genai.GenerativeModel(MODEL_NAME)
+            self.client = genai.Client(api_key=self.api_key)
+            print("✅ Đã kết nối Client Google GenAI mới")
         except Exception as e:
-            print(f"Lỗi cấu hình Gemini: {e}")
+            print(f"❌ Lỗi khởi tạo Client: {e}")
+            raise e
 
-    # --- PHẦN SỬA LỖI (FIX): QUÉT WEB TÌM LINK MP3 ---
+        self.rss_url = RSS_FEED_URL
+
     def get_audio_from_webpage(self, page_url):
-        """Nếu RSS không có link tải, dùng hàm này để tìm nút Download trên web"""
         try:
-            print(f"  🔍 Đang quét trang web tìm link ẩn: {page_url}")
             headers = {'User-Agent': 'Mozilla/5.0'}
             response = requests.get(page_url, headers=headers, timeout=10)
             soup = BeautifulSoup(response.content, 'html.parser')
-            
-            # Tìm tất cả thẻ <a> có đuôi .mp3
             for a_tag in soup.find_all('a', href=True):
                 href = a_tag['href']
                 if href.strip().lower().endswith('.mp3'):
-                    if href.startswith('/'):
-                        return "https://www.bbc.co.uk" + href
+                    if href.startswith('/'): return "https://www.bbc.co.uk" + href
                     return href
             return None
-        except Exception as e:
-            print(f"  ⚠️ Lỗi quét web: {e}")
-            return None
+        except: return None
 
     def fetch_latest_episode(self):
-        """Logic tải Podcast thông minh hơn"""
-        try:
-            print(f"\n📡 Đang tải RSS feed...")
-            feed = feedparser.parse(self.rss_url)
-            if not feed.entries: raise Exception("RSS Trống")
-            
-            latest = feed.entries[0]
-            title = latest.title
-            pub_date = latest.get('published', 'Unknown')
-            audio_url = None
+        print(f"\n📡 Đang tải RSS feed...")
+        feed = feedparser.parse(self.rss_url)
+        if not feed.entries: raise Exception("RSS Trống")
+        latest = feed.entries[0]
+        title = latest.title
+        pub_date = latest.get('published', 'Unknown')
+        
+        audio_url = None
+        if hasattr(latest, 'enclosures'):
+            for enc in latest.enclosures:
+                if enc.get('href', '').endswith('.mp3'): audio_url = enc.get('href'); break
+        
+        if not audio_url:
+            audio_url = self.get_audio_from_webpage(latest.link)
 
-            # 1. Tìm trong Enclosures (Chuẩn cũ)
-            if hasattr(latest, 'enclosures'):
-                for enc in latest.enclosures:
-                    if enc.get('href', '').endswith('.mp3'):
-                        audio_url = enc.get('href'); break
-            
-            # 2. Tìm trong Media Content (Chuẩn BBC cũ)
-            if not audio_url and hasattr(latest, 'media_content'):
-                for media in latest.media_content:
-                    if media.get('url', '').endswith('.mp3'):
-                        audio_url = media.get('url'); break
-
-            # 3. KÍCH HOẠT QUÉT WEB (Giải pháp cho lỗi hiện tại)
-            if not audio_url:
-                print("  ⚠️ Không thấy link trong RSS, kích hoạt chế độ Web Scraping...")
-                audio_url = self.get_audio_from_webpage(latest.link)
-
-            if not audio_url: raise Exception("Không tìm thấy file MP3 bằng mọi cách")
-
-            print(f"✓ Tìm thấy tập: {title}")
-            return {'title': title, 'pub_date': pub_date, 'audio_url': audio_url}
-        except Exception as e:
-            raise Exception(f"Lỗi lấy dữ liệu: {e}")
+        if not audio_url: raise Exception("Không tìm thấy Audio URL")
+        print(f"✓ Tìm thấy: {title}")
+        return {'title': title, 'pub_date': pub_date, 'audio_url': audio_url}
 
     def download_audio(self, audio_url):
-        print(f"⬇️  Đang tải file MP3...")
-        headers = {'User-Agent': 'Mozilla/5.0'} # Giả lập trình duyệt để không bị chặn
-        r = requests.get(audio_url, headers=headers, stream=True)
-        with open(TEMP_AUDIO_FILE, 'wb') as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
+        print(f"⬇️ Đang tải MP3...")
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        r = requests.get(audio_url, headers=headers)
+        with open(TEMP_AUDIO_FILE, 'wb') as f: f.write(r.content)
         return TEMP_AUDIO_FILE
 
     def process_with_gemini(self, file_path):
-        print(f"☁️  Upload lên Gemini & Phân tích...")
-        audio_file = genai.upload_file(file_path)
+        print(f"☁️ Upload và Xử lý với Gemini (New SDK)...")
         
-        while audio_file.state.name == "PROCESSING":
-            time.sleep(5)
-            audio_file = genai.get_file(audio_file.name)
+        # 1. Upload file (Cú pháp mới)
+        try:
+            # Upload file trực tiếp
+            file_ref = self.client.files.upload(file=file_path, config={'mime_type': 'audio/mp3'})
+            print(f"   -> Upload xong: {file_ref.name}")
             
-        if audio_file.state.name == "FAILED": raise Exception("Gemini xử lý thất bại")
+            # Chờ file xử lý xong (Polling state)
+            while True:
+                file_info = self.client.files.get(name=file_ref.name)
+                if file_info.state == "ACTIVE":
+                    break
+                if file_info.state == "FAILED":
+                    raise Exception("File upload failed processing")
+                print("   ...đang xử lý file...")
+                time.sleep(2)
 
-        prompt = """
-        Bạn là giáo viên tiếng Anh cho người Việt. Hãy phân tích file âm thanh này.
-        
-        PHẦN 1: PHÂN TÍCH (Analysis)
-        1. TỪ VỰNG (5 từ B2-C1):
-           - Từ vựng & Loại từ
-           - Định nghĩa (Tiếng Việt)
-           - Ví dụ & Dịch nghĩa
-        2. NGỮ PHÁP (2 cấu trúc):
-           - Cấu trúc & Cách dùng (Tiếng Việt)
-           - Ví dụ
-           
-        PHẦN 2: TRANSCRIPT (Bản chép lời đầy đủ)
-        
-        Định dạng đầu ra rõ ràng để đưa vào file Word.
-        """
-        response = self.model.generate_content([audio_file, prompt])
-        audio_file.delete()
-        return response.text
+            # 2. Tạo nội dung
+            prompt = """
+            Analyze this English podcast audio.
+            OUTPUT FORMAT (Plain text only):
+            1. VOCABULARY (5 Advanced words): Word - Definition (Vietnamese) - Example.
+            2. TRANSCRIPT: Full verbatim transcript.
+            """
+            
+            response = self.model_response = self.client.models.generate_content(
+                model=MODEL_NAME,
+                contents=[file_ref, prompt]
+            )
+            
+            # 3. Dọn dẹp file trên Cloud (Quan trọng)
+            self.client.files.delete(name=file_ref.name)
+            
+            return response.text
+
+        except Exception as e:
+            raise Exception(f"Lỗi Gemini SDK: {e}")
 
     def create_word_doc(self, info, content):
-        print(f"📄 Đang tạo file Word...")
+        print(f"📄 Tạo file Word...")
         doc = Document()
         doc.add_heading(info['title'], 0)
-        doc.add_paragraph(f"Ngày phát hành: {info['pub_date']}")
-        
-        # Xử lý nội dung Gemini trả về để đưa vào Word
-        for line in content.split('\n'):
-            if line.strip():
-                if line.startswith('#'):
-                    doc.add_heading(line.replace('#', '').strip(), level=2)
-                else:
-                    doc.add_paragraph(line.strip())
-        
-        clean_title = "".join([c for c in info['title'] if c.isalnum() or c==' ']).strip().replace(' ', '_')
-        filename = f"English_Lesson_{clean_title}.docx"
+        doc.add_paragraph(f"Date: {info['pub_date']}")
+        doc.add_paragraph(content)
+        filename = f"Lesson_{int(time.time())}.docx"
         doc.save(filename)
         return filename
 
     def send_email(self, attachment_path, subject):
-        if not self.email_sender or not self.email_password:
-            print("⚠️ Bỏ qua gửi mail vì thiếu thông tin đăng nhập.")
-            return
-
-        print(f"📧 Đang gửi email tới {self.email_receiver}...")
+        print(f"\n📧 Đang gửi email...")
         msg = MIMEMultipart()
         msg['From'] = self.email_sender
         msg['To'] = self.email_receiver
         msg['Subject'] = f"[English Daily] {subject}"
-        
-        msg.attach(MIMEText("Chào bạn,\n\nĐây là bài học hôm nay. Chúc bạn học vui vẻ!", 'plain'))
+        msg.attach(MIMEText("Tài liệu học tiếng Anh của bạn đính kèm bên dưới.", 'plain'))
 
         with open(attachment_path, "rb") as f:
             part = MIMEBase('application', 'octet-stream')
@@ -199,32 +155,33 @@ class PodcastLearningAutomation:
             msg.attach(part)
 
         try:
-            server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+            # Sử dụng cổng 587 (TLS) chuẩn
+            server = smtplib.SMTP('smtp.gmail.com', 587)
+            server.starttls()
             server.login(self.email_sender, self.email_password)
             server.send_message(msg)
             server.quit()
-            print("✅ Email đã gửi thành công!")
+            print("✅ EMAIL GỬI THÀNH CÔNG!")
         except Exception as e:
-            print(f"❌ Lỗi gửi mail: {e}")
+            print(f"❌ LỖI GỬI MAIL: {e}")
+            raise e
 
     def cleanup(self):
         if os.path.exists(TEMP_AUDIO_FILE): os.remove(TEMP_AUDIO_FILE)
 
     def run(self):
         try:
-            print("--- BẮT ĐẦU ---")
-            ep = self.fetch_latest_episode()       # Bước 1: Lấy thông tin (Đã fix lỗi)
-            local = self.download_audio(ep['audio_url']) # Bước 2: Tải file
-            ai_content = self.process_with_gemini(local) # Bước 3: AI xử lý
-            doc_file = self.create_word_doc(ep, ai_content) # Bước 4: Tạo Word
-            self.send_email(doc_file, ep['title']) # Bước 5: Gửi mail
+            ep = self.fetch_latest_episode()
+            local = self.download_audio(ep['audio_url'])
+            ai_content = self.process_with_gemini(local)
+            doc = self.create_word_doc(ep, ai_content)
+            self.send_email(doc, ep['title'])
             self.cleanup()
-            print("--- THÀNH CÔNG ---")
+            print("--- DONE ---")
         except Exception as e:
-            print(f"❌ CHƯƠNG TRÌNH THẤT BẠI: {e}")
+            print(f"🔥 LỖI CHƯƠNG TRÌNH: {e}")
             self.cleanup()
+            exit(1)
 
 if __name__ == "__main__":
     PodcastLearningAutomation().run()
-
-
